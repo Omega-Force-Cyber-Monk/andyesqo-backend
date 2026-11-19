@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "mfaResetAt" TIMESTAMP(3);

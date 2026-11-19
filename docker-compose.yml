@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: andyesqo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: andyesqo
+      POSTGRES_PASSWORD: andyesqo
+      POSTGRES_DB: andyesqo
+    ports:
+      - '5432:5432'
+    volumes:
+      - andyesqo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U andyesqo -d andyesqo']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  andyesqo_pgdata:

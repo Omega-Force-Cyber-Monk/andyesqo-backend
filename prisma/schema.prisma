@@ -1,0 +1,1051 @@
+// Prisma schema for the Andyesqo fleet & delivery operations platform.
+// Derived from the Figma file "andyesqo || tech_omega" (UI Screens page).
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+/// Built-in roles seen in the design (one dashboard/app per role).
+enum UserRole {
+  SUPER_ADMIN // Platform admin
+  BUSINESS_ADMIN // Business admin
+  SUPERVISOR // Supervisor dashboard
+  FLEET_MANAGER // Fleet dashboard
+  ROSTER_MANAGER // Roster dashboard
+  DRIVER // Driver mobile app
+  ASSISTANT // Assistant driver mobile app
+}
+
+enum UserStatus {
+  PENDING_INVITE
+  ACTIVE
+  INACTIVE
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CASUAL
+  CONTRACT
+}
+
+enum TokenType {
+  INVITATION
+  PASSWORD_RESET
+}
+
+enum BusinessStatus {
+  PENDING_SETUP
+  INCOMPLETE
+  READY
+  ACTIVE
+  INACTIVE
+}
+
+enum BusinessRegionStatus {
+  READY
+  ACTIVE
+  INACTIVE
+}
+
+enum PermissionModule {
+  DASHBOARD
+  DELIVERIES
+  DRIVERS
+  LIVE_MAP
+  VEHICLES
+  INSPECTIONS
+  REPAIRS
+  MAINTENANCE
+  ROSTER
+  COMPLIANCE
+  REPORTS
+  COMMUNICATION
+  DEPOTS
+  SETTINGS
+  AUDIT
+}
+
+enum VehicleBodyType {
+  VAN
+  TRUCK
+  BUS
+  MINIBUS
+  UTE
+  OTHER
+}
+
+enum FuelType {
+  DIESEL
+  PETROL
+  EV
+  HYBRID
+  OTHER
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  ASSIGNED
+  IN_SERVICE
+  MAINTENANCE
+  UNAVAILABLE
+  INSPECTION_REQUIRED
+  REPAIR_REQUIRED
+  GROUNDED
+}
+
+enum ShiftType {
+  MORNING
+  AFTERNOON
+  NIGHT
+  CUSTOM
+}
+
+enum ShiftStatus {
+  DRAFT
+  PUBLISHED
+  UNASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  UNAVAILABLE
+  ON_LEAVE
+}
+
+enum TimesheetStatus {
+  OPEN
+  SUBMITTED
+  APPROVED
+}
+
+enum ComplianceDocumentType {
+  DRIVER_LICENCE
+  VISA
+  MEDICAL_CERTIFICATE
+  POLICE_CHECK
+  TRAINING
+  EMPLOYMENT_CONTRACT
+  EMERGENCY_CONTACT
+  INSURANCE
+  OTHER
+}
+
+enum InspectionType {
+  PRE_SHIFT
+  POST_SHIFT
+}
+
+enum InspectionResult {
+  PASSED
+  FAILED
+}
+
+enum InspectionStatus {
+  PENDING_REVIEW
+  REVIEWED
+  ISSUES_REPORTED
+}
+
+enum ChecklistResult {
+  GOOD
+  ISSUE
+}
+
+enum Severity {
+  MINOR
+  MODERATE
+  MAJOR
+  SEVERE
+  CRITICAL
+  UNSAFE
+}
+
+enum DamageLocation {
+  FRONT
+  REAR
+  LEFT_SIDE
+  RIGHT_SIDE
+  INTERIOR
+}
+
+enum YesNoUnsure {
+  YES
+  NO
+  NOT_SURE
+}
+
+enum DamageReportStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REPAIR_REQUESTED
+  GROUNDED
+  RESOLVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RepairStatus {
+  PENDING_REVIEW
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
+enum MaintenanceType {
+  ROUTINE_SERVICE
+  PREVENTIVE_MAINTENANCE
+  BRAKE_INSPECTION
+  TYRE_REPLACEMENT
+  OIL_CHANGE
+  BATTERY_SERVICE
+  MECHANICAL_REPAIR
+  ELECTRICAL_REPAIR
+  SAFETY_INSPECTION
+  OTHER
+}
+
+enum ServiceLocationType {
+  DEPOT
+  EXTERNAL_SERVICE_CENTRE
+  MOBILE_MECHANIC
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  PENDING
+  IN_PROGRESS
+  PICKED_UP
+  DELAYED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum IncidentStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  RESOLVED
+}
+
+enum FuelEntryType {
+  DIESEL
+  PETROL
+  EV_CHARGING
+  OTHER
+}
+
+enum NotificationType {
+  SHIFT
+  DELIVERY
+  INSPECTION
+  DAMAGE
+  REPAIR
+  MAINTENANCE
+  COMPLIANCE
+  ROSTER
+  MESSAGE
+  BUSINESS
+  SYSTEM
+}
+
+// ───────────────────────── Platform / tenancy ─────────────────────────
+
+model Region {
+  id          String           @id @default(uuid())
+  code        String           @unique // NSW, VIC ...
+  name        String // New South Wales
+  country     String           @default("Australia")
+  description String? // "Sydney Metro, Hunter, Central Coast"
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  businesses  BusinessRegion[]
+}
+
+model Business {
+  id                  String           @id @default(uuid())
+  name                String
+  businessType        String? // "Courier / Logistics / Transport"
+  businessNumber      String? // ABN
+  email               String?
+  contactNumber       String?
+  address             String?
+  supportEmail        String?
+  supportPhone        String?
+  status              BusinessStatus   @default(PENDING_SETUP)
+  twoFactorRequired   Boolean          @default(false)
+  /// IANA time zone for shift times and reminders.
+  timezone            String           @default("Australia/Sydney")
+  settingsConfigured  Boolean          @default(false)
+  permissionsVerified Boolean          @default(false)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  regions             BusinessRegion[]
+  depots              Depot[]
+  users               User[]
+  vehicles            Vehicle[]
+  shifts              Shift[]
+  deliveries          Delivery[]
+  damageTypes         DamageType[]
+  incidentTypes       IncidentType[]
+  roleDefinitions     RoleDefinition[]
+  auditLogs           AuditLog[]
+  counters            Counter[]
+  uploads             Upload[]
+}
+
+model BusinessRegion {
+  id         String               @id @default(uuid())
+  businessId String
+  regionId   String
+  status     BusinessRegionStatus @default(READY)
+  assignedAt DateTime             @default(now())
+  business   Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  region     Region               @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, regionId])
+}
+
+model Depot {
+  id           String           @id @default(uuid())
+  businessId   String
+  name         String // Sydney Central
+  address      String?
+  zone         String? // Zone 4 / Sydney CBD Core
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  business     Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  users        User[]
+  vehicles     Vehicle[]
+  shifts       Shift[]
+  deliveries   Delivery[]
+  maintenance  Maintenance[]
+  accessScopes UserDepotScope[]
+
+  @@unique([businessId, name])
+}
+
+/// Per-business running numbers for human IDs (DEL-1024, REP-1024, DR-2048, VH-1025 ...).
+model Counter {
+  businessId String
+  key        String
+  value      Int      @default(1000)
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@id([businessId, key])
+}
+
+// ───────────────────────────── Access control ─────────────────────────────
+
+/// Role definitions (built-in + custom roles created in "Create Role").
+model RoleDefinition {
+  id          String           @id @default(uuid())
+  businessId  String? // null = platform default template
+  key         String // e.g. SUPERVISOR or a custom slug
+  name        String
+  description String?
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  business    Business?        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+
+  @@unique([businessId, key])
+}
+
+model RolePermission {
+  id               String           @id @default(uuid())
+  roleDefinitionId String
+  module           PermissionModule
+  canView          Boolean          @default(false)
+  canEdit          Boolean          @default(false)
+  roleDefinition   RoleDefinition   @relation(fields: [roleDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleDefinitionId, module])
+}
+
+// ───────────────────────────── Users ─────────────────────────────
+
+model User {
+  id                    String          @id @default(uuid())
+  businessId            String?
+  depotId               String?
+  role                  UserRole
+  status                UserStatus      @default(PENDING_INVITE)
+  employeeId            String? // DRV-10024, AST-1001, SUP-2041 ...
+  email                 String          @unique
+  phone                 String?
+  firstName             String
+  lastName              String?
+  passwordHash          String?
+  avatarUrl             String?
+  dateOfBirth           DateTime?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  employmentType        EmploymentType?
+  joiningDate           DateTime?
+  team                  String? // "Metro Delivery Team A"
+  supervisorId          String?
+  preferredShift        ShiftType?
+  licenceClass          String? // "MR - Medium Rigid"
+  licenceNumber         String?
+  licenceExpiry         DateTime?
+  visaStatus            String? // Citizen, Work visa ...
+  visaExpiry            DateTime?
+  twoFactorEnabled      Boolean         @default(false)
+  /// Set by an administrator-assisted authenticator reset.
+  mfaResetAt            DateTime?
+  credentialVersion     Int             @default(0)
+  allDepots             Boolean         @default(true)
+  lastLoginAt           DateTime?
+  lastLoginIp           String?
+  lastLoginUserAgent    String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  depot       Depot?    @relation(fields: [depotId], references: [id], onDelete: SetNull)
+  supervisor  User?     @relation("Supervision", fields: [supervisorId], references: [id], onDelete: SetNull)
+  supervisees User[]    @relation("Supervision")
+
+  refreshTokens         RefreshToken[]
+  userTokens            UserToken[]
+  documents             ComplianceDocument[]
+  availability          Availability[]
+  assignedVehicles      Vehicle[]                @relation("VehicleAssignedDriver")
+  driverShifts          Shift[]                  @relation("ShiftDriver")
+  assistantShifts       Shift[]                  @relation("ShiftAssistant")
+  attendances           Attendance[]
+  inspections           Inspection[]             @relation("InspectionDriver")
+  reviewedInspections   Inspection[]             @relation("InspectionReviewer")
+  damageReports         DamageReport[]           @relation("DamageReporter")
+  reviewedDamageReports DamageReport[]           @relation("DamageReviewer")
+  repairRequests        RepairRequest[]          @relation("RepairReporter")
+  deliveries            Delivery[]               @relation("DeliveryDriver")
+  createdDeliveries     Delivery[]               @relation("DeliveryCreator")
+  incidents             IncidentReport[]
+  fuelLogs              FuelLog[]
+  sentMessages          Message[]                @relation("MessageSender")
+  receivedMessages      Message[]                @relation("MessageRecipient")
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+  vehicleStatusChanges  VehicleStatusLog[]
+  locationUpdates       DriverLocation[]
+  mfaTotp               MfaTotp?
+  mfaRecoveryCodes      MfaRecoveryCode[]
+  mfaAttempts           MfaAttempt[]
+  mfaChallenges         MfaChallenge[]
+  permissionOverrides   UserPermissionOverride[]
+  depotScopes           UserDepotScope[]
+  uploads               Upload[]
+
+  @@unique([businessId, employeeId])
+  @@index([businessId, role])
+}
+
+model UserPermissionOverride {
+  userId    String
+  module    PermissionModule
+  canView   Boolean          @default(false)
+  canEdit   Boolean          @default(false)
+  startsAt  DateTime
+  expiresAt DateTime
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, module])
+}
+
+model UserDepotScope {
+  userId  String
+  depotId String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  depot   Depot  @relation(fields: [depotId], references: [id], onDelete: Cascade)
+
+  @@id([userId, depotId])
+}
+
+model DriverLocation {
+  id         String   @id @default(uuid())
+  driverId   String
+  latitude   Float
+  longitude  Float
+  accuracy   Float?
+  recordedAt DateTime
+  createdAt  DateTime @default(now())
+  driver     User     @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([driverId, recordedAt(sort: Desc)])
+  @@index([recordedAt])
+}
+
+model RefreshToken {
+  id                String    @id @default(uuid())
+  userId            String
+  tokenHash         String    @unique
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  ip                String?
+  userAgent         String?
+  mfaVerified       Boolean   @default(false)
+  credentialVersion Int       @default(0)
+  createdAt         DateTime  @default(now())
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model MfaTotp {
+  userId        String  @id
+  secret        String
+  confirmed     Boolean @default(false)
+  pendingSecret String?
+  lastUsedStep  BigInt?
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MfaRecoveryCode {
+  userId String
+  hash   String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, hash])
+}
+
+model MfaAttempt {
+  id     String   @id @default(uuid())
+  userId String
+  at     DateTime
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, at])
+}
+
+model MfaChallenge {
+  id                String    @id @default(uuid())
+  userId            String
+  tokenHash         String    @unique
+  expiresAt         DateTime
+  usedAt            DateTime?
+  remember          Boolean   @default(false)
+  credentialVersion Int       @default(0)
+  createdAt         DateTime  @default(now())
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Invitation (7-day activation link) and password-reset tokens.
+model UserToken {
+  id        String    @id @default(uuid())
+  userId    String
+  type      TokenType
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+model ComplianceDocument {
+  id        String                 @id @default(uuid())
+  userId    String
+  type      ComplianceDocumentType
+  title     String // "Medical Certificate", "Safety Induction", "First Aid"
+  number    String? // licence / document number
+  issuedAt  DateTime?
+  expiresAt DateTime?
+  fileUrl   String?
+  notes     String?
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+model Availability {
+  id        String             @id @default(uuid())
+  userId    String
+  date      DateTime           @db.Date
+  status    AvailabilityStatus
+  note      String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+// ───────────────────────────── Fleet ─────────────────────────────
+
+model Vehicle {
+  id                 String          @id @default(uuid())
+  businessId         String
+  depotId            String?
+  code               String // VH-1025 (auto-generated if blank)
+  registration       String // ABC-123
+  model              String // Toyota HiAce
+  year               Int?
+  bodyType           VehicleBodyType @default(VAN)
+  fuelType           FuelType        @default(DIESEL)
+  capacity           String? // "12 Seats"
+  odometerKm         Int             @default(0)
+  status             VehicleStatus   @default(AVAILABLE)
+  lastServiceDate    DateTime?
+  nextServiceDate    DateTime?
+  registrationExpiry DateTime?
+  insuranceExpiry    DateTime?
+  assignedDriverId   String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  business       Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  depot          Depot?             @relation(fields: [depotId], references: [id], onDelete: SetNull)
+  assignedDriver User?              @relation("VehicleAssignedDriver", fields: [assignedDriverId], references: [id], onDelete: SetNull)
+  shifts         Shift[]
+  inspections    Inspection[]
+  damageReports  DamageReport[]
+  repairRequests RepairRequest[]
+  maintenance    Maintenance[]
+  deliveries     Delivery[]
+  fuelLogs       FuelLog[]
+  incidents      IncidentReport[]
+  statusLogs     VehicleStatusLog[]
+
+  @@unique([businessId, registration])
+  @@unique([businessId, code])
+}
+
+model VehicleStatusLog {
+  id          String        @id @default(uuid())
+  vehicleId   String
+  fromStatus  VehicleStatus
+  toStatus    VehicleStatus
+  reason      String?
+  changedById String?
+  createdAt   DateTime      @default(now())
+  vehicle     Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  changedBy   User?         @relation(fields: [changedById], references: [id], onDelete: SetNull)
+}
+
+model Inspection {
+  id             String           @id @default(uuid())
+  vehicleId      String
+  driverId       String
+  shiftId        String?
+  type           InspectionType
+  result         InspectionResult
+  status         InspectionStatus @default(PENDING_REVIEW)
+  durationSec    Int?
+  odometerKm     Int?
+  comments       String?
+  photos         String[]
+  reviewedById   String?
+  reviewedAt     DateTime?
+  submittedAt    DateTime         @default(now())
+  vehicle        Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driver         User             @relation("InspectionDriver", fields: [driverId], references: [id], onDelete: Cascade)
+  reviewedBy     User?            @relation("InspectionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  shift          Shift?           @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  items          InspectionItem[]
+  repairRequests RepairRequest[]
+
+  @@index([vehicleId, submittedAt])
+}
+
+model InspectionItem {
+  id           String          @id @default(uuid())
+  inspectionId String
+  name         String // Tyres, Lights, Mirrors, Brakes ...
+  result       ChecklistResult
+  note         String?
+  inspection   Inspection      @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+}
+
+model DamageType {
+  id                String         @id @default(uuid())
+  businessId        String
+  name              String
+  description       String?
+  defaultSeverity   Severity       @default(MODERATE)
+  requiresPhoto     Boolean        @default(false)
+  autoGroundVehicle Boolean        @default(false)
+  active            Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  business          Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reports           DamageReport[]
+
+  @@unique([businessId, name])
+}
+
+model DamageReport {
+  id                   String             @id @default(uuid())
+  code                 String // DR-2048
+  vehicleId            String
+  reportedById         String
+  damageTypeId         String?
+  inspectionId         String?
+  locations            DamageLocation[]
+  severity             Severity
+  description          String
+  photos               String[]
+  noticedAt            DateTime?
+  involvedInAccident   YesNoUnsure        @default(NO)
+  odometerKm           Int?
+  status               DamageReportStatus @default(SUBMITTED)
+  // Fleet manager assessment
+  assessedSeverity     Severity?
+  safetyImpact         String?
+  canContinueOperating Boolean?
+  estimatedParts       Decimal?           @db.Decimal(10, 2)
+  estimatedLabour      Decimal?           @db.Decimal(10, 2)
+  reviewedById         String?
+  reviewedAt           DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  vehicle              Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  reportedBy           User               @relation("DamageReporter", fields: [reportedById], references: [id], onDelete: Cascade)
+  reviewedBy           User?              @relation("DamageReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  damageType           DamageType?        @relation(fields: [damageTypeId], references: [id], onDelete: SetNull)
+  repairRequests       RepairRequest[]
+
+  @@index([vehicleId, createdAt])
+}
+
+model RepairRequest {
+  id              String        @id @default(uuid())
+  code            String // REP-1024
+  vehicleId       String
+  reportedById    String?
+  damageReportId  String?
+  inspectionId    String?
+  issue           String
+  description     String?
+  priority        Priority      @default(MEDIUM)
+  status          RepairStatus  @default(PENDING_REVIEW)
+  provider        String?
+  estimatedParts  Decimal?      @db.Decimal(10, 2)
+  estimatedLabour Decimal?      @db.Decimal(10, 2)
+  actualCost      Decimal?      @db.Decimal(10, 2)
+  approvedAt      DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  vehicle         Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  reportedBy      User?         @relation("RepairReporter", fields: [reportedById], references: [id], onDelete: SetNull)
+  damageReport    DamageReport? @relation(fields: [damageReportId], references: [id], onDelete: SetNull)
+  inspection      Inspection?   @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+}
+
+model Maintenance {
+  id                     String              @id @default(uuid())
+  vehicleId              String
+  depotId                String?
+  type                   MaintenanceType
+  priority               Priority            @default(MEDIUM)
+  description            String?
+  scheduledDate          DateTime
+  startTime              String? // "09:00"
+  expectedCompletion     String? // "14:00"
+  locationType           ServiceLocationType @default(EXTERNAL_SERVICE_CENTRE)
+  providerName           String?
+  providerPhone          String?
+  estimatedParts         Decimal?            @db.Decimal(10, 2)
+  estimatedLabour        Decimal?            @db.Decimal(10, 2)
+  actualCost             Decimal?            @db.Decimal(10, 2)
+  estimatedDowntimeHours Float?
+  status                 MaintenanceStatus   @default(SCHEDULED)
+  completedAt            DateTime?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  vehicle                Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  depot                  Depot?              @relation(fields: [depotId], references: [id], onDelete: SetNull)
+  tasks                  MaintenanceTask[]
+
+  @@index([vehicleId, scheduledDate])
+}
+
+model MaintenanceTask {
+  id            String      @id @default(uuid())
+  maintenanceId String
+  title         String
+  done          Boolean     @default(false)
+  maintenance   Maintenance @relation(fields: [maintenanceId], references: [id], onDelete: Cascade)
+}
+
+// ───────────────────────────── Roster & shifts ─────────────────────────────
+
+model Shift {
+  id                   String       @id @default(uuid())
+  businessId           String
+  depotId              String?
+  date                 DateTime     @db.Date
+  type                 ShiftType    @default(MORNING)
+  startTime            String // "06:00"
+  endTime              String // "14:00"
+  breakStart           String?
+  breakEnd             String?
+  driverId             String?
+  assistantId          String?
+  vehicleId            String?
+  status               ShiftStatus  @default(DRAFT)
+  publishedAt          DateTime?
+  /// Claimed when the "Shift Starting Soon" reminder is sent.
+  startReminderAt      DateTime?
+  /// Claimed when the pre-shift inspection reminder is sent.
+  inspectionReminderAt DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  business             Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  depot                Depot?       @relation(fields: [depotId], references: [id], onDelete: SetNull)
+  driver               User?        @relation("ShiftDriver", fields: [driverId], references: [id], onDelete: SetNull)
+  assistant            User?        @relation("ShiftAssistant", fields: [assistantId], references: [id], onDelete: SetNull)
+  vehicle              Vehicle?     @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  attendances          Attendance[]
+  inspections          Inspection[]
+  deliveries           Delivery[]
+  fuelLogs             FuelLog[]
+
+  @@index([businessId, date])
+  @@index([driverId, date])
+}
+
+/// Clock in / clock out + timesheet for one person on one shift.
+model Attendance {
+  id               String          @id @default(uuid())
+  shiftId          String
+  userId           String
+  clockInAt        DateTime?
+  clockOutAt       DateTime?
+  clockInLocation  String?
+  clockOutLocation String?
+  distanceKm       Float?
+  timesheetStatus  TimesheetStatus @default(OPEN)
+  summaryNote      String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  shift            Shift           @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([shiftId, userId])
+}
+
+model FuelLog {
+  id              String         @id @default(uuid())
+  shiftId         String?
+  userId          String
+  vehicleId       String?
+  refuelled       Boolean        @default(true) // false = "No fuel today"
+  type            FuelEntryType?
+  station         String?
+  amountPaid      Decimal?       @db.Decimal(10, 2)
+  quantityLitres  Float?
+  energyKwh       Float?
+  durationMinutes Int?
+  receiptPhotos   String[]
+  createdAt       DateTime       @default(now())
+  shift           Shift?         @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle         Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+}
+
+// ───────────────────────────── Deliveries ─────────────────────────────
+
+model Delivery {
+  id                  String           @id @default(uuid())
+  businessId          String
+  code                String // DEL-1024
+  customerName        String
+  contactPerson       String?
+  contactPhone        String?
+  contactEmail        String?
+  pickupAddress       String?
+  deliveryAddress     String
+  zone                String? // Operational zone
+  depotId             String?
+  loadingBay          String?
+  windowStart         DateTime?
+  windowEnd           DateTime?
+  scheduledDropTime   DateTime?
+  eta                 DateTime?
+  priority            Priority         @default(MEDIUM)
+  status              DeliveryStatus   @default(PENDING)
+  driverId            String?
+  vehicleId           String?
+  shiftId             String?
+  createdById         String?
+  packageCount        Int?
+  totalWeightKg       Float?
+  fragile             Boolean          @default(false)
+  specialInstructions String?
+  barcode             String?
+  delayReason         String?
+  departedAt          DateTime?
+  startedAt           DateTime?
+  pickedUpAt          DateTime?
+  deliveredAt         DateTime?
+  pickupPhotos        String[]
+  proofPhotos         String[]
+  deliveryNotes       String?
+  sortOrder           Int?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  business            Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  depot               Depot?           @relation(fields: [depotId], references: [id], onDelete: SetNull)
+  driver              User?            @relation("DeliveryDriver", fields: [driverId], references: [id], onDelete: SetNull)
+  createdBy           User?            @relation("DeliveryCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  vehicle             Vehicle?         @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  shift               Shift?           @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  packages            Package[]
+  incidents           IncidentReport[]
+  messages            Message[]
+
+  @@unique([businessId, code])
+  @@index([businessId, status])
+  @@index([driverId, scheduledDropTime])
+}
+
+model Package {
+  id          String   @id @default(uuid())
+  deliveryId  String
+  code        String // PKG-01
+  description String?
+  weightKg    Float?
+  delivery    Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+}
+
+model IncidentType {
+  id                       String           @id @default(uuid())
+  businessId               String
+  name                     String
+  description              String?
+  defaultSeverity          Severity         @default(MODERATE)
+  requiresSupervisorReview Boolean          @default(false)
+  requiresPoliceReport     Boolean          @default(false)
+  requiresSafeWorkNotice   Boolean          @default(false)
+  active                   Boolean          @default(true)
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+  business                 Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  incidents                IncidentReport[]
+
+  @@unique([businessId, name])
+}
+
+model IncidentReport {
+  id             String         @id @default(uuid())
+  incidentTypeId String?
+  deliveryId     String?
+  vehicleId      String?
+  reportedById   String
+  description    String
+  photos         String[]
+  location       String?
+  status         IncidentStatus @default(SUBMITTED)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  incidentType   IncidentType?  @relation(fields: [incidentTypeId], references: [id], onDelete: SetNull)
+  delivery       Delivery?      @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+  vehicle        Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  reportedBy     User           @relation(fields: [reportedById], references: [id], onDelete: Cascade)
+}
+
+// ───────────────────────── Communication & audit ─────────────────────────
+
+model Message {
+  id          String    @id @default(uuid())
+  senderId    String
+  recipientId String
+  deliveryId  String?
+  body        String
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+  sender      User      @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient   User      @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  delivery    Delivery? @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+
+  @@index([senderId, recipientId, createdAt])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  /// Set by scheduled alerts so a repeated run does not notify twice.
+  dedupeKey String?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt])
+}
+
+/// Immutable audit trail (business "Audit" and platform "Activity" screens).
+model AuditLog {
+  id         String    @id @default(uuid())
+  businessId String?
+  actorId    String?
+  action     String // "Grounded Vehicle (Red-Tag)"
+  module     String // "Fleet & Safety", "Users & Permissions"
+  targetType String?
+  targetId   String?
+  details    String?
+  ip         String?
+  createdAt  DateTime  @default(now())
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  actor      User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+}
+
+/// A stored photo or document. Files live outside the public web root and are
+/// served only to authorised users (see UploadsService).
+model Upload {
+  id           String    @id @default(uuid())
+  businessId   String?
+  uploadedById String
+  storageKey   String    @unique
+  originalName String
+  mimeType     String
+  size         Int
+  sha256       String
+  createdAt    DateTime  @default(now())
+  business     Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+}
